@@ -84,6 +84,9 @@ type DecoderConfig struct {
 	// the decoding. If this is nil, then no metadata will be tracked.
 	Metadata *Metadata
 
+	// Squash all embedded structs, even without ",squash" tag.
+	AlwaysSquash bool
+
 	// Result is a pointer to the struct that will contain the decoded
 	// value.
 	Result interface{}
@@ -707,14 +710,17 @@ func (d *Decoder) decodeStruct(name string, data interface{}, val reflect.Value)
 				}
 			}
 
-			if squash {
-				if fieldKind != reflect.Struct {
-					errors = appendErrors(errors,
-						fmt.Errorf("%s: unsupported type for squash: %s", fieldType.Name, fieldKind))
-				} else {
+			if fieldKind == reflect.Struct {
+				if squash || d.config.AlwaysSquash {
 					structs = append(structs, val.FieldByName(fieldType.Name))
+					continue
 				}
-				continue
+			} else {
+				if squash {
+					errors = appendErrors(errors,
+						fmt.Errorf("%s: unsupported type for squash: %s",
+							fieldType.Name, fieldKind))
+				}
 			}
 
 			// Normal struct field, store it away
